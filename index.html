@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Cube Site</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <!-- Navigation -->
+  <nav id="nav">
+    <button data-face="0">Shop</button>
+    <button data-face="1">Experience</button>
+    <button data-face="2">News</button>
+    <button data-face="3">About</button>
+    <button data-face="4">Contact</button>
+    <button data-face="5">Portfolio</button>
+  </nav>
+
+  <!-- Content overlay (shown when a face is selected) -->
+  <div id="content-overlay" class="hidden">
+    <button id="close-content">&times;</button>
+    <div id="content-inner"></div>
+  </div>
+
+  <!-- Face content templates -->
+  <template id="face-0-content">
+    <div class="face-content shop">
+      <h1>Shop</h1>
+      <p>Browse our collection</p>
+    </div>
+  </template>
+  <template id="face-1-content">
+    <div class="face-content experience">
+      <h1>Experience</h1>
+      <p>Immersive journeys</p>
+    </div>
+  </template>
+  <template id="face-2-content">
+    <div class="face-content news">
+      <h1>News</h1>
+      <p>Latest updates</p>
+    </div>
+  </template>
+  <template id="face-3-content">
+    <div class="face-content about">
+      <h1>About</h1>
+      <p>Our story</p>
+    </div>
+  </template>
+  <template id="face-4-content">
+    <div class="face-content contact">
+      <h1>Contact</h1>
+      <p>Get in touch</p>
+    </div>
+  </template>
+  <template id="face-5-content">
+    <div class="face-content portfolio">
+      <h1>Portfolio</h1>
+      <p>Our work</p>
+    </div>
+  </template>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
