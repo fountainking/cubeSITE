@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 // ============================================
 // CONFIGURATION
@@ -12,7 +16,18 @@ const COLORS = [
   0x74b9ff, // Portfolio - sky blue
 ];
 
-const FACE_LABELS = ['SHOP', 'EXPERIENCE', 'NEWS', 'ABOUT', 'CONTACT', 'PORTFOLIO'];
+// Rubik's cube face colors (standard scheme)
+// Order: +X (right), -X (left), +Y (top), -Y (bottom), +Z (front), -Z (back)
+const RUBIKS_COLORS = [
+  0x0000ff, // Blue (right +X)
+  0x87ceeb, // Light blue (left -X)
+  0xff0000, // Red (top +Y)
+  0xff8c00, // Orange (bottom -Y)
+  0xffcc00, // Yellow-orange (front +Z)
+  0xffffff, // White (back -Z)
+];
+
+const FACE_LABELS = ['WHY?', 'WHAT?', 'HOW?', 'WHERE?', 'WHEN?', 'WHO?'];
 
 // Cube is made of 3x3x3 = 27 smaller cubes for Rubik's effect
 const SEGMENTS = 3;
@@ -28,7 +43,18 @@ const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.z = 5;
+
+// Adjust camera distance based on screen size to keep cube centered and sized well
+function updateCameraForScreenSize() {
+  const aspect = window.innerWidth / window.innerHeight;
+  // On narrow screens (mobile portrait), move camera back
+  if (aspect < 1) {
+    camera.position.z = 6.5;
+  } else {
+    camera.position.z = 5;
+  }
+}
+updateCameraForScreenSize();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -42,6 +68,63 @@ scene.add(ambientLight);
 const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
 directionalLight.position.set(5, 5, 5);
 scene.add(directionalLight);
+
+// ============================================
+// POST-PROCESSING
+// ============================================
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+// Bloom pass (10%)
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.1,   // strength (10%)
+  0.4,   // radius
+  0.85   // threshold
+);
+bloomPass.enabled = false; // Only enable in dark mode
+composer.addPass(bloomPass);
+
+// Chromatic aberration shader - subtle, 5%
+const ChromaticAberrationShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    amount: { value: 0.012 } // 40% effect
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float amount;
+    varying vec2 vUv;
+    void main() {
+      // Only apply effect near the center where the cube is
+      vec2 center = vec2(0.5, 0.5);
+      float dist = distance(vUv, center);
+      float mask = smoothstep(0.5, 0.15, dist); // Fade in toward center
+
+      vec2 dir = vUv - center;
+      float effectAmount = amount * mask;
+
+      vec4 cr = texture2D(tDiffuse, vUv + dir * effectAmount);
+      vec4 cg = texture2D(tDiffuse, vUv);
+      vec4 cb = texture2D(tDiffuse, vUv - dir * effectAmount);
+
+      gl_FragColor = vec4(cr.r, cg.g, cb.b, cg.a);
+    }
+  `
+};
+
+const chromaticPass = new ShaderPass(ChromaticAberrationShader);
+chromaticPass.enabled = false;
+composer.addPass(chromaticPass);
+
 
 
 // ============================================
@@ -258,6 +341,34 @@ function createMaterials(isCenter = false) {
   });
 }
 
+// Create a colored dot geometry (extruded cylinder)
+const dotRadius = SEGMENT_SIZE * 0.018;
+const dotHeight = SEGMENT_SIZE * 0.015;
+const dotGeometry = new THREE.CylinderGeometry(dotRadius, dotRadius, dotHeight, 16);
+
+// Helper to create a dot with wireframe outline
+function createDot(color, faceIndex) {
+  const group = new THREE.Group();
+  group.userData.isDot = true;
+  group.userData.colorHex = color;
+  group.userData.faceIndex = faceIndex; // Which face this dot belongs to originally
+
+  // Extruded dot (cylinder rotated to face outward)
+  const dot = new THREE.Mesh(dotGeometry, new THREE.MeshBasicMaterial({ color }));
+  dot.rotation.x = Math.PI / 2; // Point cylinder outward
+  dot.position.z = dotHeight / 2;
+
+  // Wireframe outline for the dot
+  const edges = new THREE.EdgesGeometry(dotGeometry, 15);
+  const outline = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff }));
+  outline.rotation.x = Math.PI / 2;
+  outline.position.z = dotHeight / 2;
+
+  group.add(dot);
+  group.add(outline);
+  return group;
+}
+
 // Build the 3x3x3 cube structure
 for (let x = 0; x < SEGMENTS; x++) {
   for (let y = 0; y < SEGMENTS; y++) {
@@ -268,7 +379,6 @@ for (let x = 0; x < SEGMENTS; x++) {
                      z === 0 || z === SEGMENTS - 1;
       if (!isEdge) continue;
 
-      const isCenterFace = (seg) => seg === 1;
       const cubeSize = SEGMENT_SIZE * 0.98;
       const geometry = createBeveledBox(cubeSize, cubeSize, cubeSize, BEVEL_SIZE);
 
@@ -293,6 +403,53 @@ for (let x = 0; x < SEGMENTS; x++) {
       const wireframe = new THREE.LineSegments(edges, lineMaterial);
       cube.add(wireframe);
 
+      // Add colored dots to outer faces
+      const halfSize = cubeSize / 2;
+      const dotOffset = halfSize * 0.55; // Position in top-right area of face
+      const dotZ = 0.001; // Slight offset to prevent z-fighting
+
+      // +X face (right) - blue (face 0)
+      if (x === SEGMENTS - 1) {
+        const dot = createDot(RUBIKS_COLORS[0], 0);
+        dot.position.set(halfSize + dotZ, dotOffset, -dotOffset);
+        dot.rotation.y = Math.PI / 2;
+        cube.add(dot);
+      }
+      // -X face (left) - light blue (face 1)
+      if (x === 0) {
+        const dot = createDot(RUBIKS_COLORS[1], 1);
+        dot.position.set(-halfSize - dotZ, dotOffset, dotOffset);
+        dot.rotation.y = -Math.PI / 2;
+        cube.add(dot);
+      }
+      // +Y face (top) - red (face 2)
+      if (y === SEGMENTS - 1) {
+        const dot = createDot(RUBIKS_COLORS[2], 2);
+        dot.position.set(dotOffset, halfSize + dotZ, -dotOffset);
+        dot.rotation.x = -Math.PI / 2;
+        cube.add(dot);
+      }
+      // -Y face (bottom) - orange (face 3)
+      if (y === 0) {
+        const dot = createDot(RUBIKS_COLORS[3], 3);
+        dot.position.set(dotOffset, -halfSize - dotZ, dotOffset);
+        dot.rotation.x = Math.PI / 2;
+        cube.add(dot);
+      }
+      // +Z face (front) - yellow (face 4)
+      if (z === SEGMENTS - 1) {
+        const dot = createDot(RUBIKS_COLORS[4], 4);
+        dot.position.set(dotOffset, dotOffset, halfSize + dotZ);
+        cube.add(dot);
+      }
+      // -Z face (back) - white (face 5)
+      if (z === 0) {
+        const dot = createDot(RUBIKS_COLORS[5], 5);
+        dot.position.set(-dotOffset, dotOffset, -halfSize - dotZ);
+        dot.rotation.y = Math.PI;
+        cube.add(dot);
+      }
+
       // Position
       const offset = (SEGMENTS - 1) / 2;
       cube.position.set(
@@ -314,11 +471,28 @@ scene.add(cubeGroup);
 // RUBIK'S STYLE ROTATION ANIMATION
 // ============================================
 let isAnimating = false;
-const rotationGroup = new THREE.Group();
-scene.add(rotationGroup);
+
+// Track move history for solving
+let moveHistory = [];
+let isSolved = true;
+let isDarkMode = false;
+
+// Each face rotates a different slice - like turning a Rubik's cube
+// This allows the cube to get properly scrambled
+const faceToMove = {
+  0: { axis: 'x', index: 2, direction: 1 },  // Shop - rotate right slice
+  1: { axis: 'x', index: 0, direction: -1 }, // Experience - rotate left slice
+  2: { axis: 'y', index: 2, direction: 1 },  // News - rotate top slice
+  3: { axis: 'y', index: 0, direction: -1 }, // About - rotate bottom slice
+  4: { axis: 'z', index: 2, direction: 1 },  // Contact - rotate front slice
+  5: { axis: 'z', index: 0, direction: -1 }, // Portfolio - rotate back slice
+};
+
+// Opposite faces that cancel each other out
+const oppositeFace = { 0: 1, 1: 0, 2: 3, 3: 2, 4: 5, 5: 4 };
 
 // Rotate a slice of the cube (Rubik's style)
-function rotateSlice(axis, index, direction = 1) {
+function rotateSlice(axis, index, direction = 1, recordMove = true) {
   return new Promise((resolve) => {
     if (isAnimating) {
       resolve();
@@ -326,7 +500,13 @@ function rotateSlice(axis, index, direction = 1) {
     }
     isAnimating = true;
 
-    // Find cubes in this slice
+    // Record this move for potential solving
+    if (recordMove) {
+      moveHistory.push({ axis, index, direction });
+      isSolved = false;
+    }
+
+    // Find cubes in this slice based on their grid position
     const sliceCubes = smallCubes.filter(cube => {
       const pos = cube.userData;
       if (axis === 'x') return pos.x === index;
@@ -334,114 +514,343 @@ function rotateSlice(axis, index, direction = 1) {
       if (axis === 'z') return pos.z === index;
     });
 
-    // Move to rotation group
-    sliceCubes.forEach(cube => {
-      cubeGroup.remove(cube);
-      rotationGroup.add(cube);
-    });
+    // Store original positions relative to cubeGroup
+    const originalPositions = sliceCubes.map(cube => cube.position.clone());
+    const originalQuaternions = sliceCubes.map(cube => cube.quaternion.clone());
 
     // Animate rotation
-    const targetRotation = (Math.PI / 2) * direction;
-    const duration = 600;
+    const targetAngle = (Math.PI / 2) * direction;
+    const duration = 350;
     const start = performance.now();
 
-    function animate() {
+    // Create rotation quaternion for incremental updates
+    const rotationAxis = new THREE.Vector3(
+      axis === 'x' ? 1 : 0,
+      axis === 'y' ? 1 : 0,
+      axis === 'z' ? 1 : 0
+    );
+
+    function animateSlice() {
       const elapsed = performance.now() - start;
       const progress = Math.min(elapsed / duration, 1);
-      // easeInOutCubic for smoother start and end
-      const eased = progress < 0.5
-        ? 4 * progress * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-      if (axis === 'x') rotationGroup.rotation.x = targetRotation * eased;
-      if (axis === 'y') rotationGroup.rotation.y = targetRotation * eased;
-      if (axis === 'z') rotationGroup.rotation.z = targetRotation * eased;
+      // easeOutCubic for smooth feel
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const currentAngle = targetAngle * eased;
+
+      // Apply rotation to each cube
+      const rotQuat = new THREE.Quaternion().setFromAxisAngle(rotationAxis, currentAngle);
+
+      sliceCubes.forEach((cube, i) => {
+        // Rotate position around origin
+        cube.position.copy(originalPositions[i]).applyQuaternion(rotQuat);
+        // Rotate orientation
+        cube.quaternion.copy(rotQuat).multiply(originalQuaternions[i]);
+      });
 
       if (progress < 1) {
-        requestAnimationFrame(animate);
+        requestAnimationFrame(animateSlice);
       } else {
-        // Apply rotation to individual cubes and return to main group
+        // Snap positions to grid and update userData
         sliceCubes.forEach(cube => {
-          cube.position.applyEuler(rotationGroup.rotation);
-          cube.rotation.x += rotationGroup.rotation.x;
-          cube.rotation.y += rotationGroup.rotation.y;
-          cube.rotation.z += rotationGroup.rotation.z;
+          // Round position to nearest grid slot
+          const offset = (SEGMENTS - 1) / 2;
+          const gridX = Math.round(cube.position.x / (SEGMENT_SIZE + GAP) + offset);
+          const gridY = Math.round(cube.position.y / (SEGMENT_SIZE + GAP) + offset);
+          const gridZ = Math.round(cube.position.z / (SEGMENT_SIZE + GAP) + offset);
 
-          // Update userData position
-          const roundedPos = {
-            x: Math.round(cube.position.x / (SEGMENT_SIZE + GAP) + 1),
-            y: Math.round(cube.position.y / (SEGMENT_SIZE + GAP) + 1),
-            z: Math.round(cube.position.z / (SEGMENT_SIZE + GAP) + 1),
-          };
-          cube.userData = roundedPos;
+          cube.userData = { x: gridX, y: gridY, z: gridZ };
 
-          rotationGroup.remove(cube);
-          cubeGroup.add(cube);
+          // Snap to exact grid position
+          cube.position.set(
+            (gridX - offset) * (SEGMENT_SIZE + GAP),
+            (gridY - offset) * (SEGMENT_SIZE + GAP),
+            (gridZ - offset) * (SEGMENT_SIZE + GAP)
+          );
+
+          // Snap quaternion to nearest 90-degree rotation
+          snapQuaternion(cube.quaternion);
         });
 
-        rotationGroup.rotation.set(0, 0, 0);
         isAnimating = false;
         resolve();
       }
     }
 
-    animate();
+    animateSlice();
   });
 }
 
-// Perform random Rubik's shuffles as a transition effect
-async function rubiksShuffle(count = 3) {
-  const axes = ['x', 'y', 'z'];
-  for (let i = 0; i < count; i++) {
-    const axis = axes[Math.floor(Math.random() * 3)];
-    const index = Math.floor(Math.random() * SEGMENTS);
-    const direction = Math.random() > 0.5 ? 1 : -1;
-    await rotateSlice(axis, index, direction);
+// Snap quaternion to nearest 90-degree aligned rotation
+function snapQuaternion(q) {
+  // Convert to euler, snap each axis to nearest 90 degrees, convert back
+  const euler = new THREE.Euler().setFromQuaternion(q);
+  euler.x = Math.round(euler.x / (Math.PI / 2)) * (Math.PI / 2);
+  euler.y = Math.round(euler.y / (Math.PI / 2)) * (Math.PI / 2);
+  euler.z = Math.round(euler.z / (Math.PI / 2)) * (Math.PI / 2);
+  q.setFromEuler(euler);
+}
+
+// Check if cube is solved by examining dot colors on each face
+function checkIfSolved() {
+  // Collect all dots and determine which outer face they're on based on world position
+  const faceDots = {
+    '+x': [], '-x': [],
+    '+y': [], '-y': [],
+    '+z': [], '-z': []
+  };
+
+  const threshold = CUBE_SIZE / 2 - 0.1; // How far from center to be considered on a face
+
+  for (const cube of smallCubes) {
+    cube.traverse((child) => {
+      if (child.userData && child.userData.isDot) {
+        // Get world position of this dot
+        const worldPos = new THREE.Vector3();
+        child.getWorldPosition(worldPos);
+
+        // Determine which face this dot is on based on its world position
+        if (worldPos.x > threshold) faceDots['+x'].push(child.userData.colorHex);
+        else if (worldPos.x < -threshold) faceDots['-x'].push(child.userData.colorHex);
+        else if (worldPos.y > threshold) faceDots['+y'].push(child.userData.colorHex);
+        else if (worldPos.y < -threshold) faceDots['-y'].push(child.userData.colorHex);
+        else if (worldPos.z > threshold) faceDots['+z'].push(child.userData.colorHex);
+        else if (worldPos.z < -threshold) faceDots['-z'].push(child.userData.colorHex);
+      }
+    });
   }
+
+  // Check each face has 9 dots of the same color
+  for (const [face, colors] of Object.entries(faceDots)) {
+    if (colors.length !== 9) {
+      return false; // Not all dots found
+    }
+    const firstColor = colors[0];
+    if (!colors.every(c => c === firstColor)) {
+      return false; // Not all same color
+    }
+  }
+
+  return true; // All faces solved!
+}
+
+let hasBeenMixed = false;
+
+function checkForSolve() {
+  if (!hasBeenMixed) {
+    hasBeenMixed = true; // First move mixes it
+    return false;
+  }
+
+  if (checkIfSolved()) {
+    // Cube is solved! Toggle dark mode
+    isDarkMode = !isDarkMode;
+    document.body.classList.toggle('dark-mode', isDarkMode);
+
+    // Enable/disable post-processing effects
+    bloomPass.enabled = isDarkMode;
+    chromaticPass.enabled = isDarkMode;
+
+    hasBeenMixed = false; // Reset so next solve can trigger
+    console.log('🎉 Cube solved! Dark mode:', isDarkMode);
+    return true;
+  }
+  return false;
 }
 
 // ============================================
-// DRAG CONTROLS
+// DRAG CONTROLS (Cube rotation + Slice rotation)
 // ============================================
 let isDragging = false;
 let previousMousePosition = { x: 0, y: 0 };
 let targetRotation = { x: 0, y: 0 };
 let currentRotation = { x: 0, y: 0 };
 let velocity = { x: 0, y: 0 };
-let autoRotate = true;
+let autoRotate = false;
+
+// Raycaster for detecting clicks on cube
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+// Slice drag state
+let isDraggingSlice = false;
+let dragStartCube = null;
+let dragStartFace = null;
+let dragStartPoint = null;
+let dragAxis = null;
+let dragSliceIndex = null;
+let dragDirection = 0;
+let accumulatedDragAngle = 0;
+const DRAG_THRESHOLD = 20; // pixels before we decide drag direction
+
+function getIntersectedCube(e) {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+
+  // Only check the cube meshes themselves, not children (faster)
+  const intersects = raycaster.intersectObjects(smallCubes, false);
+
+  if (intersects.length > 0) {
+    return { cube: intersects[0].object, point: intersects[0].point, face: intersects[0].face };
+  }
+
+  // Also check children if direct check missed (for wireframes/dots clicked)
+  const intersectsDeep = raycaster.intersectObjects(smallCubes, true);
+  if (intersectsDeep.length > 0) {
+    let obj = intersectsDeep[0].object;
+    while (obj && !smallCubes.includes(obj)) {
+      obj = obj.parent;
+    }
+    if (obj) {
+      return { cube: obj, point: intersectsDeep[0].point, face: intersectsDeep[0].face };
+    }
+  }
+
+  return null;
+}
+
+function getFaceNormal(intersect) {
+  // Get the face normal in world space
+  const normal = intersect.face.normal.clone();
+  normal.applyQuaternion(intersect.cube.quaternion);
+  normal.applyQuaternion(cubeGroup.quaternion);
+  return normal;
+}
+
+function determineSliceFromDrag(startCube, faceNormal, dragDelta) {
+  // Based on which face was clicked and drag direction, determine axis and slice
+  const gridPos = startCube.userData;
+
+  // Get drag direction in screen space
+  const dragX = Math.abs(dragDelta.x);
+  const dragY = Math.abs(dragDelta.y);
+
+  // Determine primary face axis
+  const absNormal = { x: Math.abs(faceNormal.x), y: Math.abs(faceNormal.y), z: Math.abs(faceNormal.z) };
+
+  let axis, sliceIndex, direction;
+
+  if (absNormal.x > 0.7) {
+    // Clicked on X face (left/right)
+    if (dragY > dragX) {
+      // Vertical drag -> rotate around Z axis
+      axis = 'z';
+      sliceIndex = gridPos.z;
+      direction = dragDelta.y > 0 ? (faceNormal.x > 0 ? 1 : -1) : (faceNormal.x > 0 ? -1 : 1);
+    } else {
+      // Horizontal drag -> rotate around Y axis
+      axis = 'y';
+      sliceIndex = gridPos.y;
+      direction = dragDelta.x > 0 ? -1 : 1;
+    }
+  } else if (absNormal.y > 0.7) {
+    // Clicked on Y face (top/bottom)
+    if (dragX > dragY) {
+      // Horizontal drag -> rotate around Z axis
+      axis = 'z';
+      sliceIndex = gridPos.z;
+      direction = dragDelta.x > 0 ? (faceNormal.y > 0 ? -1 : 1) : (faceNormal.y > 0 ? 1 : -1);
+    } else {
+      // Vertical drag -> rotate around X axis
+      axis = 'x';
+      sliceIndex = gridPos.x;
+      direction = dragDelta.y > 0 ? 1 : -1;
+    }
+  } else {
+    // Clicked on Z face (front/back)
+    if (dragY > dragX) {
+      // Vertical drag -> rotate around X axis
+      axis = 'x';
+      sliceIndex = gridPos.x;
+      direction = dragDelta.y > 0 ? (faceNormal.z > 0 ? -1 : 1) : (faceNormal.z > 0 ? 1 : -1);
+    } else {
+      // Horizontal drag -> rotate around Y axis
+      axis = 'y';
+      sliceIndex = gridPos.y;
+      direction = dragDelta.x > 0 ? -1 : 1;
+    }
+  }
+
+  return { axis, sliceIndex, direction };
+}
 
 container.addEventListener('pointerdown', (e) => {
-  isDragging = true;
-  autoRotate = false;
+  if (isAnimating) return;
+
   previousMousePosition = { x: e.clientX, y: e.clientY };
   velocity = { x: 0, y: 0 };
+
+  // Check if we clicked on the cube
+  const hit = getIntersectedCube(e);
+
+  if (hit && hit.cube) {
+    // Start as potential slice drag
+    isDraggingSlice = true;
+    isDragging = true; // Also enable cube rotation as fallback
+    dragStartCube = hit.cube;
+    dragStartFace = getFaceNormal(hit);
+    dragStartPoint = { x: e.clientX, y: e.clientY };
+    dragAxis = null;
+    accumulatedDragAngle = 0;
+  } else {
+    isDragging = true;
+  }
 });
 
 container.addEventListener('pointermove', (e) => {
-  if (!isDragging) return;
-
   const deltaX = e.clientX - previousMousePosition.x;
   const deltaY = e.clientY - previousMousePosition.y;
 
-  targetRotation.y += deltaX * 0.005;
-  targetRotation.x += deltaY * 0.005;
+  if (isDraggingSlice && dragStartCube && !isAnimating && !dragAxis) {
+    const dragDelta = {
+      x: e.clientX - dragStartPoint.x,
+      y: e.clientY - dragStartPoint.y
+    };
 
-  velocity.x = deltaY * 0.005;
-  velocity.y = deltaX * 0.005;
+    // Wait for threshold to determine if this is a slice drag
+    if (Math.abs(dragDelta.x) > DRAG_THRESHOLD || Math.abs(dragDelta.y) > DRAG_THRESHOLD) {
+      const sliceInfo = determineSliceFromDrag(dragStartCube, dragStartFace, dragDelta);
+      dragAxis = sliceInfo.axis;
+      dragSliceIndex = sliceInfo.sliceIndex;
+      dragDirection = sliceInfo.direction;
+      // Stop cube rotation once we commit to slice
+      isDragging = false;
+    }
+  }
+
+  // Rotate whole cube while dragging (until slice axis is determined)
+  if (isDragging) {
+    targetRotation.y += deltaX * 0.005;
+    targetRotation.x += deltaY * 0.005;
+
+    velocity.x = deltaY * 0.005;
+    velocity.y = deltaX * 0.005;
+  }
 
   previousMousePosition = { x: e.clientX, y: e.clientY };
 });
 
-container.addEventListener('pointerup', () => {
+
+container.addEventListener('pointerup', async (e) => {
+  if (isDraggingSlice && dragAxis && !isAnimating) {
+    // Complete the slice rotation
+    await rotateSlice(dragAxis, dragSliceIndex, dragDirection, false);
+    setTimeout(() => checkForSolve(), 50);
+  }
+
   isDragging = false;
-  // Re-enable auto rotate after 3 seconds of no interaction
-  setTimeout(() => {
-    if (!isDragging) autoRotate = true;
-  }, 3000);
+  isDraggingSlice = false;
+  dragStartCube = null;
+  dragAxis = null;
 });
 
 container.addEventListener('pointerleave', () => {
   isDragging = false;
+  isDraggingSlice = false;
+  dragStartCube = null;
+  dragAxis = null;
 });
 
 // ============================================
@@ -463,11 +872,18 @@ async function navigateToFace(faceIndex) {
   if (isAnimating) return;
 
   autoRotate = false;
+  velocity = { x: 0, y: 0 }; // Stop any momentum
 
-  // Do a quick Rubik's shuffle for visual flair
-  await rubiksShuffle(2);
+  // Perform the slice rotation
+  const move = faceToMove[faceIndex];
+  if (move) {
+    await rotateSlice(move.axis, move.index, move.direction, false);
+  }
 
-  // Then rotate the whole cube to show the face
+  // Check if cube is now solved (after animation completes)
+  setTimeout(() => checkForSolve(), 50);
+
+  // Smoothly rotate the whole cube to show the face
   targetRotation = { ...faceRotations[faceIndex] };
   currentFace = faceIndex;
 
@@ -525,22 +941,25 @@ overlay.addEventListener('click', (e) => {
 // ============================================
 // ANIMATION LOOP
 // ============================================
+let lastTime = performance.now();
+
 function animate() {
   requestAnimationFrame(animate);
 
-  // Smooth rotation interpolation
-  const lerpFactor = 0.03;
+  const now = performance.now();
+  const deltaTime = Math.min((now - lastTime) / 1000, 0.1); // Cap at 100ms to prevent huge jumps
+  lastTime = now;
 
-  if (autoRotate && !isDragging) {
-    targetRotation.y += 0.003;
-  }
+  // Smooth rotation interpolation - use delta time for consistent speed
+  const lerpFactor = 1 - Math.pow(0.001, deltaTime); // Approximately 0.1 at 60fps
 
   // Apply momentum when not dragging
   if (!isDragging) {
     targetRotation.x += velocity.x;
     targetRotation.y += velocity.y;
-    velocity.x *= 0.95;
-    velocity.y *= 0.95;
+    const damping = Math.pow(0.05, deltaTime); // Frame-rate independent damping
+    velocity.x *= damping;
+    velocity.y *= damping;
   }
 
   currentRotation.x += (targetRotation.x - currentRotation.x) * lerpFactor;
@@ -549,7 +968,8 @@ function animate() {
   cubeGroup.rotation.x = currentRotation.x;
   cubeGroup.rotation.y = currentRotation.y;
 
-  renderer.render(scene, camera);
+  // Use composer for post-processing
+  composer.render();
 }
 
 animate();
@@ -560,8 +980,10 @@ animate();
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  updateCameraForScreenSize();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.resolution.set(window.innerWidth, window.innerHeight);
 });
 
-// Initial shuffle for visual interest
-setTimeout(() => rubiksShuffle(3), 500);
+// Cube starts solved - user navigation will mix it up
