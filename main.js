@@ -47,9 +47,14 @@ const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerH
 // Adjust camera distance based on screen size to keep cube centered and sized well
 function updateCameraForScreenSize() {
   const aspect = window.innerWidth / window.innerHeight;
+  const minDimension = Math.min(window.innerWidth, window.innerHeight);
+
   // On narrow screens (mobile portrait), move camera back
   if (aspect < 1) {
     camera.position.z = 6.5;
+  } else if (minDimension < 500) {
+    // Landscape mobile - screen is short, bring camera closer
+    camera.position.z = 4;
   } else {
     camera.position.z = 5;
   }
