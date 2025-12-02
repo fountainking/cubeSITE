@@ -468,6 +468,90 @@ for (let x = 0; x < SEGMENTS; x++) {
 scene.add(cubeGroup);
 
 // ============================================
+// INTRO ANIMATION - Cubes explode in
+// ============================================
+let introComplete = false;
+
+function playIntroAnimation() {
+  const duration = 2000; // 2 seconds
+  const staggerDelay = 50; // delay between each cube starting
+  const start = performance.now();
+
+  // Store target positions and set random start positions
+  smallCubes.forEach((cube, i) => {
+    // Store the final position
+    cube.userData.targetPos = cube.position.clone();
+    cube.userData.targetRot = cube.quaternion.clone();
+
+    // Random start position - scattered around
+    const spread = 8;
+    cube.position.set(
+      (Math.random() - 0.5) * spread * 2,
+      (Math.random() - 0.5) * spread * 2,
+      (Math.random() - 0.5) * spread - 5 // Bias toward camera
+    );
+
+    // Random start rotation
+    cube.quaternion.setFromEuler(new THREE.Euler(
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2
+    ));
+
+    // Store start position for interpolation
+    cube.userData.startPos = cube.position.clone();
+    cube.userData.startRot = cube.quaternion.clone();
+    cube.userData.delay = i * staggerDelay;
+  });
+
+  function animateIntro() {
+    const elapsed = performance.now() - start;
+
+    let allDone = true;
+
+    smallCubes.forEach((cube) => {
+      const cubeElapsed = elapsed - cube.userData.delay;
+      if (cubeElapsed < 0) {
+        allDone = false;
+        return;
+      }
+
+      const progress = Math.min(cubeElapsed / duration, 1);
+
+      // easeOutExpo for dramatic slow-down at the end
+      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+
+      // Interpolate position
+      cube.position.lerpVectors(cube.userData.startPos, cube.userData.targetPos, eased);
+
+      // Interpolate rotation
+      cube.quaternion.slerpQuaternions(cube.userData.startRot, cube.userData.targetRot, eased);
+
+      if (progress < 1) allDone = false;
+    });
+
+    if (!allDone) {
+      requestAnimationFrame(animateIntro);
+    } else {
+      // Clean up userData
+      smallCubes.forEach(cube => {
+        delete cube.userData.startPos;
+        delete cube.userData.startRot;
+        delete cube.userData.targetPos;
+        delete cube.userData.targetRot;
+        delete cube.userData.delay;
+      });
+      introComplete = true;
+    }
+  }
+
+  requestAnimationFrame(animateIntro);
+}
+
+// Start intro after a brief delay
+setTimeout(playIntroAnimation, 100);
+
+// ============================================
 // RUBIK'S STYLE ROTATION ANIMATION
 // ============================================
 let isAnimating = false;
@@ -777,7 +861,7 @@ function determineSliceFromDrag(startCube, faceNormal, dragDelta) {
 }
 
 container.addEventListener('pointerdown', (e) => {
-  if (isAnimating) return;
+  if (isAnimating || !introComplete) return;
 
   previousMousePosition = { x: e.clientX, y: e.clientY };
   velocity = { x: 0, y: 0 };
@@ -869,7 +953,7 @@ const faceRotations = [
 let currentFace = -1;
 
 async function navigateToFace(faceIndex) {
-  if (isAnimating) return;
+  if (isAnimating || !introComplete) return;
 
   autoRotate = false;
   velocity = { x: 0, y: 0 }; // Stop any momentum
