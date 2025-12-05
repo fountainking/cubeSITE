@@ -855,65 +855,65 @@ const faceColorVars = [
   '--who-color'
 ];
 
-// Material configurations for each category
+// Material configurations for each category - EXTREME versions for visibility
 const materialPresets = {
-  0: { // Why? - Deep Glass
+  0: { // Why? - Deep Blue Glass
     color: 0x0000ff,
-    opacity: 0.3,
-    roughness: 0.1,
+    opacity: 0.6,
+    roughness: 0.0,
     metalness: 0.0,
     clearcoat: 1.0,
-    transmission: 0.5,
-    ior: 1.5
-  },
-  1: { // What? - Crystal Clear
-    color: 0x87ceeb,
-    opacity: 0.15,
-    roughness: 0.05,
-    metalness: 0.0,
-    clearcoat: 0.5,
-    transmission: 0.8,
-    ior: 1.5
-  },
-  2: { // How? - Metallic Shine
-    color: 0xff0000,
-    opacity: 0.4,
-    roughness: 0.2,
-    metalness: 0.8,
-    clearcoat: 0.3,
     transmission: 0.0,
     ior: 1.5
   },
-  3: { // Where? - Frosted Matte
-    color: 0xff8c00,
-    opacity: 0.4,
-    roughness: 0.9,
+  1: { // What? - Almost Invisible
+    color: 0x87ceeb,
+    opacity: 0.05,
+    roughness: 0.0,
     metalness: 0.0,
     clearcoat: 0.0,
     transmission: 0.0,
     ior: 1.5
   },
-  4: { // When? - Glowing Emissive
-    color: 0xffcc00,
-    opacity: 0.25,
+  2: { // How? - Solid Red Metal
+    color: 0xff0000,
+    opacity: 0.9,
+    roughness: 0.1,
+    metalness: 1.0,
+    clearcoat: 1.0,
+    transmission: 0.0,
+    ior: 1.5
+  },
+  3: { // Where? - Solid Orange Matte
+    color: 0xff8c00,
+    opacity: 0.8,
+    roughness: 1.0,
+    metalness: 0.0,
+    clearcoat: 0.0,
+    transmission: 0.0,
+    ior: 1.5
+  },
+  4: { // When? - Bright Glowing Yellow
+    color: 0xffff00,
+    opacity: 0.7,
     roughness: 0.3,
     metalness: 0.0,
-    clearcoat: 0.2,
-    transmission: 0.0,
-    ior: 1.5,
-    emissive: 0xffcc00,
-    emissiveIntensity: 0.3
-  },
-  5: { // Who? - Holographic Iridescent
-    color: 0xffffff,
-    opacity: 0.3,
-    roughness: 0.2,
-    metalness: 0.1,
     clearcoat: 0.5,
     transmission: 0.0,
     ior: 1.5,
+    emissive: 0xffff00,
+    emissiveIntensity: 0.8
+  },
+  5: { // Who? - Rainbow Iridescent
+    color: 0xffffff,
+    opacity: 0.5,
+    roughness: 0.1,
+    metalness: 0.5,
+    clearcoat: 1.0,
+    transmission: 0.0,
+    ior: 1.5,
     iridescence: 1.0,
-    iridescenceIOR: 1.3
+    iridescenceIOR: 2.0
   }
 };
 
