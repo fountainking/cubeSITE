@@ -838,6 +838,16 @@ const faceRotations = [
 
 let currentFace = -1;
 
+// Map face index to CSS variable names
+const faceColorVars = [
+  '--why-color',
+  '--what-color',
+  '--how-color',
+  '--where-color',
+  '--when-color',
+  '--who-color'
+];
+
 async function navigateToFace(faceIndex) {
   if (isAnimating || !introComplete) return;
 
@@ -852,6 +862,11 @@ async function navigateToFace(faceIndex) {
 
   // Check if cube is now solved (after animation completes)
   setTimeout(() => checkForSolve(), 50);
+
+  // Change background color to match category
+  const colorVar = faceColorVars[faceIndex];
+  const color = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
+  document.body.style.backgroundColor = color;
 
   // Smoothly rotate the whole cube to show the face
   targetRotation = { ...faceRotations[faceIndex] };
