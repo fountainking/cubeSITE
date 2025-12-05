@@ -879,6 +879,16 @@ const faceColorVars = [
   '--who-color'
 ];
 
+// Map face index to background gradient variable names
+const faceBgVars = [
+  '--why-bg',
+  '--what-bg',
+  '--how-bg',
+  '--where-bg',
+  '--when-bg',
+  '--who-bg'
+];
+
 // Material configurations for each category
 const materialPresets = {
   0: { // Why? - Deep Blue Glass
@@ -1035,10 +1045,10 @@ async function navigateToFace(faceIndex) {
   // Check if cube is now solved (after animation completes)
   setTimeout(() => checkForSolve(), 50);
 
-  // Change background color to match category
-  const colorVar = faceColorVars[faceIndex];
-  const color = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
-  document.body.style.backgroundColor = color;
+  // Change background to match category (supports both gradients and solid colors)
+  const bgVar = faceBgVars[faceIndex];
+  const bgValue = getComputedStyle(document.documentElement).getPropertyValue(bgVar).trim();
+  document.body.style.background = bgValue;
 
   // Apply material preset for this category
   applyMaterialPreset(faceIndex);

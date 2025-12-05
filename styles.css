@@ -5,6 +5,14 @@
   --where-color: #ff8c00;  /* Orange */
   --when-color: #ffcc00;   /* Yellow */
   --who-color: #ffffff;    /* White */
+
+  /* Background gradients for each section */
+  --why-bg: linear-gradient(135deg, #001a4d 0%, #000033 100%);    /* Dark blue to navy */
+  --what-bg: #87ceeb;   /* Light Blue - solid for now */
+  --how-bg: #ff0000;    /* Red - solid for now */
+  --where-bg: #ff8c00;  /* Orange - solid for now */
+  --when-bg: #ffcc00;   /* Yellow - solid for now */
+  --who-bg: #ffffff;    /* White - solid for now */
 }
 
 * {
@@ -20,7 +28,7 @@ html, body {
   background: #f0f0f0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #1a1a1a;
-  transition: background-color 0.5s ease;
+  transition: background 0.5s ease;
 }
 
 body.dark-mode {
