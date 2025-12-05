@@ -7,7 +7,7 @@
   --who-color: #ffffff;    /* White */
 
   /* Background gradients for each section */
-  --why-bg: linear-gradient(135deg, #001a4d 0%, #000033 100%);    /* Dark blue to navy */
+  --why-bg: linear-gradient(180deg, #0a1128 0%, #001f54 50%, #034078 100%);    /* Night sky - deep navy to rich blue */
   --what-bg: #87ceeb;   /* Light Blue - solid for now */
   --how-bg: #ff0000;    /* Red - solid for now */
   --where-bg: #ff8c00;  /* Orange - solid for now */
