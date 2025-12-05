@@ -858,60 +858,60 @@ const faceColorVars = [
 // Material configurations for each category - EXTREME versions for visibility
 const materialPresets = {
   0: { // Why? - Deep Blue Glass
-    color: 0x0000ff,
-    opacity: 0.6,
+    color: 0x4444ff,
+    opacity: 0.5,
+    transparent: true,
     roughness: 0.0,
     metalness: 0.0,
     clearcoat: 1.0,
-    transmission: 0.0,
-    ior: 1.5
+    transmission: 0.0
   },
   1: { // What? - Almost Invisible
-    color: 0x87ceeb,
+    color: 0xffffff,
     opacity: 0.05,
+    transparent: true,
     roughness: 0.0,
     metalness: 0.0,
-    clearcoat: 0.0,
-    transmission: 0.0,
-    ior: 1.5
+    clearcoat: 0.3,
+    transmission: 0.0
   },
   2: { // How? - Solid Red Metal
-    color: 0xff0000,
-    opacity: 0.9,
+    color: 0xff3333,
+    opacity: 1.0,
+    transparent: false,
     roughness: 0.1,
     metalness: 1.0,
     clearcoat: 1.0,
-    transmission: 0.0,
-    ior: 1.5
+    transmission: 0.0
   },
   3: { // Where? - Solid Orange Matte
-    color: 0xff8c00,
-    opacity: 0.8,
+    color: 0xff8800,
+    opacity: 1.0,
+    transparent: false,
     roughness: 1.0,
     metalness: 0.0,
     clearcoat: 0.0,
-    transmission: 0.0,
-    ior: 1.5
+    transmission: 0.0
   },
   4: { // When? - Bright Glowing Yellow
     color: 0xffff00,
-    opacity: 0.7,
-    roughness: 0.3,
+    opacity: 1.0,
+    transparent: false,
+    roughness: 0.2,
     metalness: 0.0,
     clearcoat: 0.5,
     transmission: 0.0,
-    ior: 1.5,
-    emissive: 0xffff00,
-    emissiveIntensity: 0.8
+    emissive: 0xffaa00,
+    emissiveIntensity: 0.5
   },
   5: { // Who? - Rainbow Iridescent
-    color: 0xffffff,
-    opacity: 0.5,
-    roughness: 0.1,
-    metalness: 0.5,
+    color: 0xffccff,
+    opacity: 0.8,
+    transparent: true,
+    roughness: 0.0,
+    metalness: 0.3,
     clearcoat: 1.0,
     transmission: 0.0,
-    ior: 1.5,
     iridescence: 1.0,
     iridescenceIOR: 2.0
   }
@@ -921,11 +921,11 @@ const materialPresets = {
 const defaultMaterial = {
   color: 0xffffff,
   opacity: 0.15,
+  transparent: true,
   roughness: 0.1,
   metalness: 0.1,
   clearcoat: 0.3,
   transmission: 0.0,
-  ior: 1.5,
   emissive: 0x000000,
   emissiveIntensity: 0,
   iridescence: 0,
@@ -952,8 +952,8 @@ function applyMaterialPreset(presetIndex) {
       });
     }
 
-    // Ensure transparent mode is on
-    mat.transparent = true;
+    // Set transparency mode based on preset
+    mat.transparent = preset.transparent !== undefined ? preset.transparent : true;
 
     // Update all material properties
     mat.color.setHex(preset.color);
@@ -965,7 +965,7 @@ function applyMaterialPreset(presetIndex) {
     // Transmission properties
     mat.transmission = preset.transmission || 0;
     mat.thickness = 1.0;
-    mat.ior = preset.ior || 1.5;
+    mat.ior = 1.5;
 
     // Emissive properties
     mat.emissive.setHex(preset.emissive || 0x000000);
