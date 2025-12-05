@@ -748,7 +748,7 @@ function checkForSolve() {
 }
 
 // ============================================
-// DRAG CONTROLS (Cube rotation + Slice rotation)
+// DRAG CONTROLS (Whole cube rotation)
 // ============================================
 let isDragging = false;
 let previousMousePosition = { x: 0, y: 0 };
@@ -757,20 +757,9 @@ let currentRotation = { x: 0, y: 0 };
 let velocity = { x: 0, y: 0 };
 let autoRotate = false;
 
-// Raycaster for detecting clicks on cube
+// Raycaster for detecting clicks on cube (for double-tap content)
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-
-// Slice drag state
-let isDraggingSlice = false;
-let dragStartCube = null;
-let dragStartFace = null;
-let dragStartPoint = null;
-let dragAxis = null;
-let dragSliceIndex = null;
-let dragDirection = 0;
-let accumulatedDragAngle = 0;
-const DRAG_THRESHOLD = 20; // pixels before we decide drag direction
 
 function getIntersectedCube(e) {
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -800,146 +789,38 @@ function getIntersectedCube(e) {
   return null;
 }
 
-function getFaceNormal(intersect) {
-  // Get the face normal in world space
-  const normal = intersect.face.normal.clone();
-  normal.applyQuaternion(intersect.cube.quaternion);
-  normal.applyQuaternion(cubeGroup.quaternion);
-  return normal;
-}
-
-function determineSliceFromDrag(startCube, faceNormal, dragDelta) {
-  // Based on which face was clicked and drag direction, determine axis and slice
-  const gridPos = startCube.userData;
-
-  // Get drag direction in screen space
-  const dragX = Math.abs(dragDelta.x);
-  const dragY = Math.abs(dragDelta.y);
-
-  // Determine primary face axis
-  const absNormal = { x: Math.abs(faceNormal.x), y: Math.abs(faceNormal.y), z: Math.abs(faceNormal.z) };
-
-  let axis, sliceIndex, direction;
-
-  if (absNormal.x > 0.7) {
-    // Clicked on X face (left/right)
-    if (dragY > dragX) {
-      // Vertical drag -> rotate around Z axis
-      axis = 'z';
-      sliceIndex = gridPos.z;
-      direction = dragDelta.y > 0 ? (faceNormal.x > 0 ? 1 : -1) : (faceNormal.x > 0 ? -1 : 1);
-    } else {
-      // Horizontal drag -> rotate around Y axis
-      axis = 'y';
-      sliceIndex = gridPos.y;
-      direction = dragDelta.x > 0 ? -1 : 1;
-    }
-  } else if (absNormal.y > 0.7) {
-    // Clicked on Y face (top/bottom)
-    if (dragX > dragY) {
-      // Horizontal drag -> rotate around Z axis
-      axis = 'z';
-      sliceIndex = gridPos.z;
-      direction = dragDelta.x > 0 ? (faceNormal.y > 0 ? -1 : 1) : (faceNormal.y > 0 ? 1 : -1);
-    } else {
-      // Vertical drag -> rotate around X axis
-      axis = 'x';
-      sliceIndex = gridPos.x;
-      direction = dragDelta.y > 0 ? 1 : -1;
-    }
-  } else {
-    // Clicked on Z face (front/back)
-    if (dragY > dragX) {
-      // Vertical drag -> rotate around X axis
-      axis = 'x';
-      sliceIndex = gridPos.x;
-      direction = dragDelta.y > 0 ? (faceNormal.z > 0 ? -1 : 1) : (faceNormal.z > 0 ? 1 : -1);
-    } else {
-      // Horizontal drag -> rotate around Y axis
-      axis = 'y';
-      sliceIndex = gridPos.y;
-      direction = dragDelta.x > 0 ? -1 : 1;
-    }
-  }
-
-  return { axis, sliceIndex, direction };
-}
-
 container.addEventListener('pointerdown', (e) => {
   if (isAnimating || !introComplete) return;
 
   previousMousePosition = { x: e.clientX, y: e.clientY };
   velocity = { x: 0, y: 0 };
 
-  // Check if we clicked on the cube
-  const hit = getIntersectedCube(e);
-
-  if (hit && hit.cube) {
-    // Start as potential slice drag
-    isDraggingSlice = true;
-    isDragging = true; // Also enable cube rotation as fallback
-    dragStartCube = hit.cube;
-    dragStartFace = getFaceNormal(hit);
-    dragStartPoint = { x: e.clientX, y: e.clientY };
-    dragAxis = null;
-    accumulatedDragAngle = 0;
-  } else {
-    isDragging = true;
-  }
+  // Enable dragging anywhere on screen
+  isDragging = true;
 });
 
 container.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+
   const deltaX = e.clientX - previousMousePosition.x;
   const deltaY = e.clientY - previousMousePosition.y;
 
-  if (isDraggingSlice && dragStartCube && !isAnimating && !dragAxis) {
-    const dragDelta = {
-      x: e.clientX - dragStartPoint.x,
-      y: e.clientY - dragStartPoint.y
-    };
+  // Rotate whole cube
+  targetRotation.y += deltaX * 0.005;
+  targetRotation.x += deltaY * 0.005;
 
-    // Wait for threshold to determine if this is a slice drag
-    if (Math.abs(dragDelta.x) > DRAG_THRESHOLD || Math.abs(dragDelta.y) > DRAG_THRESHOLD) {
-      const sliceInfo = determineSliceFromDrag(dragStartCube, dragStartFace, dragDelta);
-      dragAxis = sliceInfo.axis;
-      dragSliceIndex = sliceInfo.sliceIndex;
-      dragDirection = sliceInfo.direction;
-      // Stop cube rotation once we commit to slice
-      isDragging = false;
-    }
-  }
-
-  // Rotate whole cube while dragging (until slice axis is determined)
-  if (isDragging) {
-    targetRotation.y += deltaX * 0.005;
-    targetRotation.x += deltaY * 0.005;
-
-    velocity.x = deltaY * 0.005;
-    velocity.y = deltaX * 0.005;
-  }
+  velocity.x = deltaY * 0.005;
+  velocity.y = deltaX * 0.005;
 
   previousMousePosition = { x: e.clientX, y: e.clientY };
 });
 
-
-container.addEventListener('pointerup', async (e) => {
-  if (isDraggingSlice && dragAxis && !isAnimating) {
-    // Complete the slice rotation
-    await rotateSlice(dragAxis, dragSliceIndex, dragDirection, false);
-    setTimeout(() => checkForSolve(), 50);
-  }
-
+container.addEventListener('pointerup', () => {
   isDragging = false;
-  isDraggingSlice = false;
-  dragStartCube = null;
-  dragAxis = null;
 });
 
 container.addEventListener('pointerleave', () => {
   isDragging = false;
-  isDraggingSlice = false;
-  dragStartCube = null;
-  dragAxis = null;
 });
 
 // ============================================
@@ -957,20 +838,11 @@ const faceRotations = [
 
 let currentFace = -1;
 
-async function navigateToFace(faceIndex) {
+function navigateToFace(faceIndex) {
   if (isAnimating || !introComplete) return;
 
   autoRotate = false;
   velocity = { x: 0, y: 0 }; // Stop any momentum
-
-  // Perform the slice rotation
-  const move = faceToMove[faceIndex];
-  if (move) {
-    await rotateSlice(move.axis, move.index, move.direction, false);
-  }
-
-  // Check if cube is now solved (after animation completes)
-  setTimeout(() => checkForSolve(), 50);
 
   // Smoothly rotate the whole cube to show the face
   targetRotation = { ...faceRotations[faceIndex] };
