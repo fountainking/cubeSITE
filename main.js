@@ -936,21 +936,44 @@ const defaultMaterial = {
 function applyMaterialPreset(presetIndex) {
   const preset = presetIndex >= 0 ? materialPresets[presetIndex] : defaultMaterial;
 
+  console.log('Applying material preset:', presetIndex, preset);
+
   smallCubes.forEach(cube => {
     const mat = cube.material;
+
+    // Update all material properties
     mat.color.setHex(preset.color);
     mat.opacity = preset.opacity;
     mat.roughness = preset.roughness;
     mat.metalness = preset.metalness;
     mat.clearcoat = preset.clearcoat;
-    mat.transmission = preset.transmission;
-    mat.ior = preset.ior;
-    mat.emissive.setHex(preset.emissive || 0x000000);
-    mat.emissiveIntensity = preset.emissiveIntensity || 0;
-    mat.iridescence = preset.iridescence || 0;
-    mat.iridescenceIOR = preset.iridescenceIOR || 1.3;
+
+    // Transmission properties
+    if (preset.transmission !== undefined) {
+      mat.transmission = preset.transmission;
+      mat.thickness = 1.0;
+      mat.ior = preset.ior;
+    }
+
+    // Emissive properties
+    if (preset.emissive !== undefined) {
+      mat.emissive.setHex(preset.emissive);
+      mat.emissiveIntensity = preset.emissiveIntensity;
+    } else {
+      mat.emissive.setHex(0x000000);
+      mat.emissiveIntensity = 0;
+    }
+
+    // Iridescence (if supported)
+    if (mat.iridescence !== undefined) {
+      mat.iridescence = preset.iridescence || 0;
+      mat.iridescenceIOR = preset.iridescenceIOR || 1.3;
+    }
+
     mat.needsUpdate = true;
   });
+
+  console.log('Material preset applied to', smallCubes.length, 'cubes');
 }
 
 async function navigateToFace(faceIndex) {
