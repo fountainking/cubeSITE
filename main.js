@@ -906,18 +906,16 @@ const materialPresets = {
     emissive: 0xffaa00,
     emissiveIntensity: 0.5
   },
-  5: { // Who? - Rainbow Iridescent
-    color: 0xffffff,
-    opacity: 0.7,
+  5: { // Who? - Bright Magenta Chrome
+    color: 0xff00ff,
+    opacity: 0.9,
     transparent: true,
-    roughness: 0.1,
-    metalness: 0.8,
+    roughness: 0.0,
+    metalness: 0.9,
     clearcoat: 1.0,
     transmission: 0.0,
-    iridescence: 1.0,
-    iridescenceIOR: 2.333,
-    emissive: 0x222222,
-    emissiveIntensity: 0.1
+    emissive: 0x660066,
+    emissiveIntensity: 0.3
   }
 };
 
