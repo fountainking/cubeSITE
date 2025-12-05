@@ -876,13 +876,15 @@ const materialPresets = {
     transmission: 0.0
   },
   2: { // How? - Solid Red Metal
-    color: 0xff3333,
-    opacity: 1.0,
-    transparent: false,
-    roughness: 0.1,
-    metalness: 1.0,
-    clearcoat: 1.0,
-    transmission: 0.0
+    color: 0xff0000,
+    opacity: 0.9,
+    transparent: true,
+    roughness: 0.3,
+    metalness: 0.7,
+    clearcoat: 0.8,
+    transmission: 0.0,
+    emissive: 0x330000,
+    emissiveIntensity: 0.2
   },
   3: { // Where? - Solid Orange Matte
     color: 0xff8800,
@@ -905,15 +907,17 @@ const materialPresets = {
     emissiveIntensity: 0.5
   },
   5: { // Who? - Rainbow Iridescent
-    color: 0xffccff,
-    opacity: 0.8,
+    color: 0xffffff,
+    opacity: 0.7,
     transparent: true,
-    roughness: 0.0,
-    metalness: 0.3,
+    roughness: 0.1,
+    metalness: 0.8,
     clearcoat: 1.0,
     transmission: 0.0,
     iridescence: 1.0,
-    iridescenceIOR: 2.0
+    iridescenceIOR: 2.333,
+    emissive: 0x222222,
+    emissiveIntensity: 0.1
   }
 };
 
