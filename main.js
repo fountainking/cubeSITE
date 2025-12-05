@@ -838,11 +838,20 @@ const faceRotations = [
 
 let currentFace = -1;
 
-function navigateToFace(faceIndex) {
+async function navigateToFace(faceIndex) {
   if (isAnimating || !introComplete) return;
 
   autoRotate = false;
   velocity = { x: 0, y: 0 }; // Stop any momentum
+
+  // Perform the slice rotation
+  const move = faceToMove[faceIndex];
+  if (move) {
+    await rotateSlice(move.axis, move.index, move.direction, false);
+  }
+
+  // Check if cube is now solved (after animation completes)
+  setTimeout(() => checkForSolve(), 50);
 
   // Smoothly rotate the whole cube to show the face
   targetRotation = { ...faceRotations[faceIndex] };
