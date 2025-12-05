@@ -148,3 +148,21 @@ body.dark-mode {
     flex-shrink: 0;
   }
 }
+
+/* Landscape mobile adjustments */
+@media (max-width: 932px) and (max-height: 450px) and (orientation: landscape) {
+  #canvas-container {
+    align-items: flex-start;
+    padding-top: 10vh;
+  }
+
+  #nav {
+    bottom: 5px;
+    padding: 6px 10px;
+  }
+
+  #nav button {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+}
