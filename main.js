@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
 // ============================================
 // CONFIGURATION
@@ -64,6 +65,8 @@ updateCameraForScreenSize();
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
 container.appendChild(renderer.domElement);
 
 // Lighting
@@ -73,6 +76,27 @@ scene.add(ambientLight);
 const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
 directionalLight.position.set(5, 5, 5);
 scene.add(directionalLight);
+
+// Environment map for metallic reflections
+const rgbeLoader = new RGBELoader();
+rgbeLoader.load(
+  'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/industrial_sunset_puresky_1k.hdr',
+  (texture) => {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.environment = texture;
+    console.log('Environment map loaded - metallic materials enabled!');
+  },
+  undefined,
+  (error) => {
+    console.warn('Environment map failed to load, using fallback:', error);
+    // Fallback: create a simple PMREMGenerator environment
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    const envScene = new THREE.Scene();
+    envScene.background = new THREE.Color(0x888888);
+    scene.environment = pmremGenerator.fromScene(envScene).texture;
+    pmremGenerator.dispose();
+  }
+);
 
 // ============================================
 // POST-PROCESSING
@@ -855,7 +879,7 @@ const faceColorVars = [
   '--who-color'
 ];
 
-// Material configurations for each category - EXTREME versions for visibility
+// Material configurations for each category
 const materialPresets = {
   0: { // Why? - Deep Blue Glass
     color: 0x4444ff,
@@ -875,16 +899,16 @@ const materialPresets = {
     clearcoat: 0.3,
     transmission: 0.0
   },
-  2: { // How? - Solid Red Metal
-    color: 0xff0000,
+  2: { // How? - Red Chrome Metal
+    color: 0xff2222,
     opacity: 0.9,
     transparent: true,
-    roughness: 0.3,
-    metalness: 0.7,
-    clearcoat: 0.8,
+    roughness: 0.1,
+    metalness: 1.0,
+    clearcoat: 1.0,
     transmission: 0.0,
-    emissive: 0x330000,
-    emissiveIntensity: 0.2
+    emissive: 0x000000,
+    emissiveIntensity: 0.0
   },
   3: { // Where? - Solid Orange Matte
     color: 0xff8800,
@@ -906,16 +930,16 @@ const materialPresets = {
     emissive: 0xffaa00,
     emissiveIntensity: 0.5
   },
-  5: { // Who? - Bright Magenta Chrome
-    color: 0xff00ff,
+  5: { // Who? - White Chrome
+    color: 0xffffff,
     opacity: 0.9,
     transparent: true,
-    roughness: 0.0,
-    metalness: 0.9,
+    roughness: 0.05,
+    metalness: 1.0,
     clearcoat: 1.0,
     transmission: 0.0,
-    emissive: 0x660066,
-    emissiveIntensity: 0.3
+    emissive: 0x000000,
+    emissiveIntensity: 0.0
   }
 };
 
