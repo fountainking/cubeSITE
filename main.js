@@ -938,8 +938,22 @@ function applyMaterialPreset(presetIndex) {
 
   console.log('Applying material preset:', presetIndex, preset);
 
-  smallCubes.forEach(cube => {
+  smallCubes.forEach((cube, idx) => {
     const mat = cube.material;
+
+    // Log first cube material properties before change
+    if (idx === 0) {
+      console.log('Before - First cube material:', {
+        color: mat.color.getHex(),
+        opacity: mat.opacity,
+        roughness: mat.roughness,
+        metalness: mat.metalness,
+        transmission: mat.transmission
+      });
+    }
+
+    // Ensure transparent mode is on
+    mat.transparent = true;
 
     // Update all material properties
     mat.color.setHex(preset.color);
@@ -949,20 +963,13 @@ function applyMaterialPreset(presetIndex) {
     mat.clearcoat = preset.clearcoat;
 
     // Transmission properties
-    if (preset.transmission !== undefined) {
-      mat.transmission = preset.transmission;
-      mat.thickness = 1.0;
-      mat.ior = preset.ior;
-    }
+    mat.transmission = preset.transmission || 0;
+    mat.thickness = 1.0;
+    mat.ior = preset.ior || 1.5;
 
     // Emissive properties
-    if (preset.emissive !== undefined) {
-      mat.emissive.setHex(preset.emissive);
-      mat.emissiveIntensity = preset.emissiveIntensity;
-    } else {
-      mat.emissive.setHex(0x000000);
-      mat.emissiveIntensity = 0;
-    }
+    mat.emissive.setHex(preset.emissive || 0x000000);
+    mat.emissiveIntensity = preset.emissiveIntensity || 0;
 
     // Iridescence (if supported)
     if (mat.iridescence !== undefined) {
@@ -971,6 +978,17 @@ function applyMaterialPreset(presetIndex) {
     }
 
     mat.needsUpdate = true;
+
+    // Log first cube material properties after change
+    if (idx === 0) {
+      console.log('After - First cube material:', {
+        color: mat.color.getHex(),
+        opacity: mat.opacity,
+        roughness: mat.roughness,
+        metalness: mat.metalness,
+        transmission: mat.transmission
+      });
+    }
   });
 
   console.log('Material preset applied to', smallCubes.length, 'cubes');
