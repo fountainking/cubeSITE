@@ -547,6 +547,8 @@ function playIntroAnimation() {
         delete cube.userData.delay;
       });
       introComplete = true;
+      // Initialize materials to default after intro
+      applyMaterialPreset(-1);
     }
   }
 
@@ -740,6 +742,11 @@ function checkForSolve() {
     bloomPass.enabled = isDarkMode;
     chromaticPass.enabled = isDarkMode;
 
+    // Reset materials to default when solved
+    if (isDarkMode) {
+      applyMaterialPreset(-1); // Apply default material
+    }
+
     hasBeenMixed = false; // Reset so next solve can trigger
     console.log('🎉 Cube solved! Dark mode:', isDarkMode);
     return true;
@@ -848,6 +855,104 @@ const faceColorVars = [
   '--who-color'
 ];
 
+// Material configurations for each category
+const materialPresets = {
+  0: { // Why? - Deep Glass
+    color: 0x0000ff,
+    opacity: 0.3,
+    roughness: 0.1,
+    metalness: 0.0,
+    clearcoat: 1.0,
+    transmission: 0.5,
+    ior: 1.5
+  },
+  1: { // What? - Crystal Clear
+    color: 0x87ceeb,
+    opacity: 0.15,
+    roughness: 0.05,
+    metalness: 0.0,
+    clearcoat: 0.5,
+    transmission: 0.8,
+    ior: 1.5
+  },
+  2: { // How? - Metallic Shine
+    color: 0xff0000,
+    opacity: 0.4,
+    roughness: 0.2,
+    metalness: 0.8,
+    clearcoat: 0.3,
+    transmission: 0.0,
+    ior: 1.5
+  },
+  3: { // Where? - Frosted Matte
+    color: 0xff8c00,
+    opacity: 0.4,
+    roughness: 0.9,
+    metalness: 0.0,
+    clearcoat: 0.0,
+    transmission: 0.0,
+    ior: 1.5
+  },
+  4: { // When? - Glowing Emissive
+    color: 0xffcc00,
+    opacity: 0.25,
+    roughness: 0.3,
+    metalness: 0.0,
+    clearcoat: 0.2,
+    transmission: 0.0,
+    ior: 1.5,
+    emissive: 0xffcc00,
+    emissiveIntensity: 0.3
+  },
+  5: { // Who? - Holographic Iridescent
+    color: 0xffffff,
+    opacity: 0.3,
+    roughness: 0.2,
+    metalness: 0.1,
+    clearcoat: 0.5,
+    transmission: 0.0,
+    ior: 1.5,
+    iridescence: 1.0,
+    iridescenceIOR: 1.3
+  }
+};
+
+// Default material settings
+const defaultMaterial = {
+  color: 0xffffff,
+  opacity: 0.15,
+  roughness: 0.1,
+  metalness: 0.1,
+  clearcoat: 0.3,
+  transmission: 0.0,
+  ior: 1.5,
+  emissive: 0x000000,
+  emissiveIntensity: 0,
+  iridescence: 0,
+  iridescenceIOR: 1.3
+};
+
+// Function to apply material preset to all cube pieces
+function applyMaterialPreset(presetIndex) {
+  const preset = presetIndex >= 0 ? materialPresets[presetIndex] : defaultMaterial;
+
+  smallCubes.forEach(cube => {
+    const mat = cube.material;
+    mat.color.setHex(preset.color);
+    mat.opacity = preset.opacity;
+    mat.roughness = preset.roughness;
+    mat.metalness = preset.metalness;
+    mat.clearcoat = preset.clearcoat;
+    mat.transmission = preset.transmission;
+    mat.ior = preset.ior;
+    mat.emissive.setHex(preset.emissive || 0x000000);
+    mat.emissiveIntensity = preset.emissiveIntensity || 0;
+    mat.iridescence = preset.iridescence || 0;
+    mat.iridescenceIOR = preset.iridescenceIOR || 1.3;
+    mat.needsUpdate = true;
+  });
+}
+
 async function navigateToFace(faceIndex) {
   if (isAnimating || !introComplete) return;
 
@@ -867,6 +972,9 @@ async function navigateToFace(faceIndex) {
   const colorVar = faceColorVars[faceIndex];
   const color = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
   document.body.style.backgroundColor = color;
+
+  // Apply material preset for this category
+  applyMaterialPreset(faceIndex);
 
   // Smoothly rotate the whole cube to show the face
   targetRotation = { ...faceRotations[faceIndex] };
