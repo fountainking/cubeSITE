@@ -438,8 +438,8 @@ scene.add(cubeGroup);
 // ============================================
 // PARTICLE SYSTEM - Cube Stars
 // ============================================
-const starCount = 200;
-const starGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+const starCount = 800; // More stars!
+const starGeometry = new THREE.BoxGeometry(0.04, 0.04, 0.04);
 const starMaterial = new THREE.MeshBasicMaterial({
   color: 0xffffff,
   transparent: true,
@@ -449,18 +449,20 @@ const starMaterial = new THREE.MeshBasicMaterial({
 const stars = new THREE.InstancedMesh(starGeometry, starMaterial, starCount);
 const starData = [];
 
-// Position stars randomly in a sphere around the scene
+// Position stars randomly, concentrated at the top
 for (let i = 0; i < starCount; i++) {
   const matrix = new THREE.Matrix4();
 
-  // Random position in a sphere
-  const radius = 15 + Math.random() * 10;
+  // Random position - bias toward top (positive Y)
+  const radius = 12 + Math.random() * 15;
   const theta = Math.random() * Math.PI * 2;
-  const phi = Math.random() * Math.PI;
+
+  // Bias phi toward the top hemisphere (0 to PI/2 more common)
+  const phi = Math.pow(Math.random(), 1.5) * Math.PI; // Power makes top more likely
 
   const x = radius * Math.sin(phi) * Math.cos(theta);
-  const y = radius * Math.sin(phi) * Math.sin(theta);
-  const z = radius * Math.cos(phi);
+  const y = radius * Math.cos(phi); // Positive Y is up
+  const z = radius * Math.sin(phi) * Math.sin(theta);
 
   matrix.setPosition(x, y, z);
 
@@ -475,11 +477,12 @@ for (let i = 0; i < starCount; i++) {
 
   stars.setMatrixAt(i, matrix);
 
-  // Store data for animation
+  // Store data for twinkling animation
   starData.push({
-    twinkleSpeed: 0.5 + Math.random() * 2,
+    twinkleSpeed: 1 + Math.random() * 3, // Faster twinkling
     twinkleOffset: Math.random() * Math.PI * 2,
-    baseOpacity: 0.3 + Math.random() * 0.5
+    baseOpacity: 0.4 + Math.random() * 0.6,
+    index: i
   });
 }
 
@@ -494,7 +497,7 @@ const shootingStars = [];
 const maxShootingStars = 5;
 
 function createShootingStar() {
-  const geometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+  const geometry = new THREE.BoxGeometry(0.12, 0.12, 0.12);
   const material = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
@@ -502,41 +505,29 @@ function createShootingStar() {
   });
   const meteor = new THREE.Mesh(geometry, material);
 
-  // Random start position (off screen)
-  const side = Math.floor(Math.random() * 4);
-  const distance = 20;
+  // Start from top, shoot downward and across
+  const startY = 15 + Math.random() * 10;
+  const startX = (Math.random() - 0.5) * 30;
+  const startZ = (Math.random() - 0.5) * 30;
 
-  switch(side) {
-    case 0: // top
-      meteor.position.set(Math.random() * 40 - 20, distance, Math.random() * 40 - 20);
-      break;
-    case 1: // right
-      meteor.position.set(distance, Math.random() * 40 - 20, Math.random() * 40 - 20);
-      break;
-    case 2: // bottom
-      meteor.position.set(Math.random() * 40 - 20, -distance, Math.random() * 40 - 20);
-      break;
-    case 3: // left
-      meteor.position.set(-distance, Math.random() * 40 - 20, Math.random() * 40 - 20);
-      break;
-  }
+  meteor.position.set(startX, startY, startZ);
 
-  // Random velocity (shooting across screen)
+  // Velocity: mostly downward with some horizontal movement
   meteor.userData.velocity = new THREE.Vector3(
-    (Math.random() - 0.5) * 0.3,
-    (Math.random() - 0.5) * 0.3,
-    (Math.random() - 0.5) * 0.3
+    (Math.random() - 0.5) * 0.4, // Some horizontal drift
+    -0.3 - Math.random() * 0.3,  // Falling down
+    (Math.random() - 0.5) * 0.4  // Some depth movement
   );
 
-  // Random rotation speed
+  // Random rotation speed for tumbling effect
   meteor.userData.rotationSpeed = new THREE.Vector3(
-    (Math.random() - 0.5) * 0.1,
-    (Math.random() - 0.5) * 0.1,
-    (Math.random() - 0.5) * 0.1
+    (Math.random() - 0.5) * 0.15,
+    (Math.random() - 0.5) * 0.15,
+    (Math.random() - 0.5) * 0.15
   );
 
   meteor.userData.lifetime = 0;
-  meteor.userData.maxLifetime = 2 + Math.random() * 2; // 2-4 seconds
+  meteor.userData.maxLifetime = 3 + Math.random() * 2; // 3-5 seconds
 
   scene.add(meteor);
   shootingStars.push(meteor);
@@ -545,16 +536,18 @@ function createShootingStar() {
 }
 
 function spawnShootingStars() {
-  // Spawn 1-3 shooting stars
-  const count = 1 + Math.floor(Math.random() * 3);
+  if (!meteorShowerActive) return;
+
+  // Spawn 2-4 shooting stars for more dramatic effect
+  const count = 2 + Math.floor(Math.random() * 3);
   for (let i = 0; i < count; i++) {
     if (shootingStars.length < maxShootingStars) {
-      setTimeout(() => createShootingStar(), i * 200); // Stagger spawns slightly
+      setTimeout(() => createShootingStar(), i * 300); // Stagger spawns
     }
   }
 
-  // Schedule next meteor shower
-  const nextShower = 5000 + Math.random() * 5000; // 5-10 seconds
+  // Schedule next meteor shower (more frequent)
+  const nextShower = 3000 + Math.random() * 4000; // 3-7 seconds
   setTimeout(spawnShootingStars, nextShower);
 }
 
@@ -1207,6 +1200,66 @@ function animate() {
 
   cubeGroup.rotation.x = currentRotation.x;
   cubeGroup.rotation.y = currentRotation.y;
+
+  // Animate twinkling stars
+  if (stars.visible) {
+    const time = now * 0.001; // Convert to seconds
+    const dummy = new THREE.Object3D();
+
+    for (let i = 0; i < starCount; i++) {
+      const star = starData[i];
+
+      // Calculate twinkling opacity using sine wave
+      const twinkle = Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
+      const opacity = star.baseOpacity + twinkle * 0.3;
+
+      // Get existing matrix, update scale for opacity effect
+      stars.getMatrixAt(i, dummy.matrix);
+      dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+
+      // Subtle scale change for twinkling effect
+      const scale = 0.8 + opacity * 0.4;
+      dummy.scale.set(scale, scale, scale);
+
+      dummy.updateMatrix();
+      stars.setMatrixAt(i, dummy.matrix);
+    }
+
+    stars.instanceMatrix.needsUpdate = true;
+
+    // Fade star material opacity for overall twinkling
+    starMaterial.opacity = 0.6 + Math.sin(time * 0.5) * 0.2;
+  }
+
+  // Animate shooting stars
+  for (let i = shootingStars.length - 1; i >= 0; i--) {
+    const meteor = shootingStars[i];
+
+    // Update position
+    meteor.position.add(meteor.userData.velocity);
+
+    // Tumble
+    meteor.rotation.x += meteor.userData.rotationSpeed.x;
+    meteor.rotation.y += meteor.userData.rotationSpeed.y;
+    meteor.rotation.z += meteor.userData.rotationSpeed.z;
+
+    // Update lifetime
+    meteor.userData.lifetime += deltaTime;
+
+    // Fade out near end of life
+    const lifeRatio = meteor.userData.lifetime / meteor.userData.maxLifetime;
+    if (lifeRatio > 0.7) {
+      meteor.material.opacity = 1 - (lifeRatio - 0.7) / 0.3;
+    }
+
+    // Remove when dead
+    if (meteor.userData.lifetime >= meteor.userData.maxLifetime) {
+      scene.remove(meteor);
+      meteor.geometry.dispose();
+      meteor.material.dispose();
+      shootingStars.splice(i, 1);
+    }
+  }
 
   renderer.render(scene, camera);
 }
