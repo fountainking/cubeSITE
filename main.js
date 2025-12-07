@@ -100,8 +100,13 @@ rgbeLoader.load(
 );
 
 // ============================================
-// POST-PROCESSING - Bloom for stars
+// POST-PROCESSING - Bloom for stars only
 // ============================================
+// Use layers for selective bloom: layer 0 = normal, layer 1 = bloom
+const BLOOM_LAYER = 1;
+const bloomLayer = new THREE.Layers();
+bloomLayer.set(BLOOM_LAYER);
+
 const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
   type: THREE.HalfFloatType,
   format: THREE.RGBAFormat,
@@ -109,19 +114,24 @@ const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.inner
 });
 
 const composer = new EffectComposer(renderer, renderTarget);
-const renderPass = new RenderPass(scene, camera);
-renderPass.clear = false;
-renderPass.clearDepth = true;
-composer.addPass(renderPass);
 
-// Subtle bloom pass for star glow
+// Final composite pass that combines base scene + bloom
+const finalComposer = new EffectComposer(renderer, renderTarget);
+const renderPass = new RenderPass(scene, camera);
+finalComposer.addPass(renderPass);
+
+// Bloom pass - will be applied selectively to bloom layer only
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.5,   // strength
-  0.6,   // radius
-  0.7    // threshold - only bright objects (stars) bloom
+  1.2,   // strength
+  0.8,   // radius
+  0.2    // threshold - only very bright objects bloom
 );
-composer.addPass(bloomPass);
+finalComposer.addPass(bloomPass);
+
+// Materials to darken non-bloom objects during bloom pass
+const darkMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const materials = {};
 
 // ============================================
 // CREATE RUBIK'S CUBE
@@ -541,6 +551,7 @@ for (let i = 0; i < starCount; i++) {
 
 stars.instanceMatrix.needsUpdate = true;
 stars.visible = false; // Only show in night sky (Why section)
+stars.layers.set(BLOOM_LAYER); // Stars use bloom layer
 scene.add(stars);
 
 // ============================================
@@ -583,6 +594,7 @@ function createShootingStar() {
   meteor.userData.lifetime = 0;
   meteor.userData.maxLifetime = 3 + Math.random() * 2; // 3-5 seconds
 
+  meteor.layers.set(BLOOM_LAYER); // Shooting stars also bloom
   scene.add(meteor);
   shootingStars.push(meteor);
 
@@ -1048,13 +1060,13 @@ const materialPresets = {
     emissive: 0xffaa00,
     emissiveIntensity: 0.5
   },
-  5: { // Who? - White Chrome
-    color: 0xffffff,
-    opacity: 0.9,
-    transparent: true,
-    roughness: 0.05,
+  5: { // Who? - Grey Metal
+    color: 0x888888,
+    opacity: 1.0,
+    transparent: false,
+    roughness: 0.5,
     metalness: 1.0,
-    clearcoat: 1.0,
+    clearcoat: 0.3,
     transmission: 0.0,
     emissive: 0x000000,
     emissiveIntensity: 0.0
@@ -1158,11 +1170,16 @@ async function navigateToFace(faceIndex) {
   const bgValue = getComputedStyle(document.documentElement).getPropertyValue(bgVar).trim();
   document.body.style.background = bgValue;
 
-  // Update THREE.js scene background to match
-  // Extract first color from gradient or use solid color
-  const colorMatch = bgValue.match(/#[0-9a-fA-F]{6}/);
-  if (colorMatch) {
-    scene.background = new THREE.Color(colorMatch[0]);
+  // Update THREE.js scene background - use transparent for gradients, solid for colors
+  if (bgValue.includes('linear-gradient')) {
+    // For gradients, make scene background transparent so CSS gradient shows through
+    scene.background = null;
+  } else {
+    // For solid colors, set scene background
+    const colorMatch = bgValue.match(/#[0-9a-fA-F]{6}/);
+    if (colorMatch) {
+      scene.background = new THREE.Color(colorMatch[0]);
+    }
   }
 
   // Apply material preset for this category
@@ -1321,7 +1338,26 @@ function animate() {
     }
   }
 
-  composer.render();
+  // Selective bloom rendering
+  // Darken non-bloomed objects, render with bloom, then restore
+  scene.traverse(darkenNonBloomed);
+  finalComposer.render();
+  scene.traverse(restoreMaterials);
+}
+
+// Helper functions for selective bloom
+function darkenNonBloomed(obj) {
+  if (obj.isMesh && bloomLayer.test(obj.layers) === false) {
+    materials[obj.uuid] = obj.material;
+    obj.material = darkMaterial;
+  }
+}
+
+function restoreMaterials(obj) {
+  if (materials[obj.uuid]) {
+    obj.material = materials[obj.uuid];
+    delete materials[obj.uuid];
+  }
 }
 
 animate();
@@ -1334,7 +1370,7 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   updateCameraForScreenSize();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
+  finalComposer.setSize(window.innerWidth, window.innerHeight);
   bloomPass.resolution.set(window.innerWidth, window.innerHeight);
 });
 
