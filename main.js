@@ -558,18 +558,19 @@ function createShootingStar() {
   });
   const meteor = new THREE.Mesh(geometry, material);
 
-  // Start from top, shoot downward and across
+  // Start from top corner, shoot diagonally across and down
   const startY = 15 + Math.random() * 10;
-  const startX = (Math.random() - 0.5) * 30;
-  const startZ = (Math.random() - 0.5) * 30;
+  const startX = (Math.random() > 0.5 ? 1 : -1) * (15 + Math.random() * 10); // Start from left or right
+  const startZ = (Math.random() - 0.5) * 20;
 
   meteor.position.set(startX, startY, startZ);
 
-  // Velocity: mostly downward with some horizontal movement
+  // Velocity: diagonal trajectory (down and across)
+  const direction = startX > 0 ? -1 : 1; // Move opposite to start position
   meteor.userData.velocity = new THREE.Vector3(
-    (Math.random() - 0.5) * 0.4, // Some horizontal drift
-    -0.3 - Math.random() * 0.3,  // Falling down
-    (Math.random() - 0.5) * 0.4  // Some depth movement
+    direction * (0.3 + Math.random() * 0.3), // Strong horizontal movement
+    -0.4 - Math.random() * 0.3,              // Falling down
+    (Math.random() - 0.5) * 0.2              // Slight depth movement
   );
 
   // Random rotation speed for tumbling effect
