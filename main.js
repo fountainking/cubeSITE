@@ -439,7 +439,7 @@ scene.add(cubeGroup);
 // PARTICLE SYSTEM - Cube Stars
 // ============================================
 const starCount = 800; // More stars!
-const starGeometry = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+const starGeometry = new THREE.BoxGeometry(0.08, 0.08, 0.08); // Bigger stars
 const starMaterial = new THREE.MeshBasicMaterial({
   color: 0xffffff,
   transparent: true,
@@ -449,20 +449,23 @@ const starMaterial = new THREE.MeshBasicMaterial({
 const stars = new THREE.InstancedMesh(starGeometry, starMaterial, starCount);
 const starData = [];
 
-// Position stars randomly, concentrated at the top
+// Position stars as a backdrop dome behind the cube (visible from camera)
 for (let i = 0; i < starCount; i++) {
   const matrix = new THREE.Matrix4();
 
-  // Random position - bias toward top (positive Y)
-  const radius = 12 + Math.random() * 15;
-  const theta = Math.random() * Math.PI * 2;
+  // Create a dome/hemisphere behind the cube
+  // Camera is at z=5 looking at origin, so stars should be at negative Z (behind cube)
+  const distance = 8 + Math.random() * 12; // 8-20 units away
 
-  // Bias phi toward the top hemisphere (0 to PI/2 more common)
-  const phi = Math.pow(Math.random(), 1.5) * Math.PI; // Power makes top more likely
+  // Horizontal spread (left to right)
+  const x = (Math.random() - 0.5) * 25;
 
-  const x = radius * Math.sin(phi) * Math.cos(theta);
-  const y = radius * Math.cos(phi); // Positive Y is up
-  const z = radius * Math.sin(phi) * Math.sin(theta);
+  // Vertical spread, biased toward top
+  const yBias = Math.pow(Math.random(), 0.7); // Favor upper portion
+  const y = (yBias - 0.3) * 20; // -6 to 14 (more at top)
+
+  // Depth - push stars back behind the cube
+  const z = -distance + (Math.random() - 0.5) * 8;
 
   matrix.setPosition(x, y, z);
 
@@ -477,11 +480,33 @@ for (let i = 0; i < starCount; i++) {
 
   stars.setMatrixAt(i, matrix);
 
-  // Store data for twinkling animation
+  // Store data for twinkling animation - varied patterns
+  const twinkleType = Math.random();
+  let speed, amplitude;
+
+  if (twinkleType < 0.3) {
+    // Fast twinklers (30%)
+    speed = 3 + Math.random() * 4;
+    amplitude = 0.6 + Math.random() * 0.4;
+  } else if (twinkleType < 0.6) {
+    // Medium twinklers (30%)
+    speed = 1.5 + Math.random() * 2;
+    amplitude = 0.3 + Math.random() * 0.4;
+  } else if (twinkleType < 0.85) {
+    // Slow twinklers (25%)
+    speed = 0.5 + Math.random() * 1;
+    amplitude = 0.2 + Math.random() * 0.3;
+  } else {
+    // Steady stars - barely twinkle (15%)
+    speed = 0.1 + Math.random() * 0.3;
+    amplitude = 0.05 + Math.random() * 0.1;
+  }
+
   starData.push({
-    twinkleSpeed: 1 + Math.random() * 3, // Faster twinkling
+    twinkleSpeed: speed,
+    twinkleAmplitude: amplitude,
     twinkleOffset: Math.random() * Math.PI * 2,
-    baseOpacity: 0.4 + Math.random() * 0.6,
+    baseOpacity: 0.5 + Math.random() * 0.5,
     index: i
   });
 }
@@ -494,7 +519,7 @@ scene.add(stars);
 // SHOOTING STARS - Cube Meteors
 // ============================================
 const shootingStars = [];
-const maxShootingStars = 5;
+const maxShootingStars = 10; // More meteors can be visible at once
 
 function createShootingStar() {
   const geometry = new THREE.BoxGeometry(0.12, 0.12, 0.12);
@@ -1209,16 +1234,15 @@ function animate() {
     for (let i = 0; i < starCount; i++) {
       const star = starData[i];
 
-      // Calculate twinkling opacity using sine wave
+      // Calculate twinkling using sine wave - each star has unique speed and amplitude
       const twinkle = Math.sin(time * star.twinkleSpeed + star.twinkleOffset);
-      const opacity = star.baseOpacity + twinkle * 0.3;
 
-      // Get existing matrix, update scale for opacity effect
+      // Get existing matrix, update scale for dramatic twinkling effect
       stars.getMatrixAt(i, dummy.matrix);
       dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
 
-      // Subtle scale change for twinkling effect
-      const scale = 0.8 + opacity * 0.4;
+      // Scale varies based on star's individual amplitude (0.2 to 1.8 range)
+      const scale = 0.3 + (star.baseOpacity + twinkle * star.twinkleAmplitude) * 1.5;
       dummy.scale.set(scale, scale, scale);
 
       dummy.updateMatrix();
@@ -1227,8 +1251,8 @@ function animate() {
 
     stars.instanceMatrix.needsUpdate = true;
 
-    // Fade star material opacity for overall twinkling
-    starMaterial.opacity = 0.6 + Math.sin(time * 0.5) * 0.2;
+    // Overall gentle pulse
+    starMaterial.opacity = 0.7 + Math.sin(time * 0.3) * 0.15;
   }
 
   // Animate shooting stars
