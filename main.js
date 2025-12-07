@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
 // ============================================
@@ -94,6 +97,22 @@ rgbeLoader.load(
     pmremGenerator.dispose();
   }
 );
+
+// ============================================
+// POST-PROCESSING - Bloom for stars
+// ============================================
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+// Subtle bloom pass for star glow
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.5,   // strength
+  0.6,   // radius
+  0.7    // threshold - only bright objects (stars) bloom
+);
+composer.addPass(bloomPass);
 
 // ============================================
 // CREATE RUBIK'S CUBE
@@ -439,7 +458,7 @@ scene.add(cubeGroup);
 // PARTICLE SYSTEM - Cube Stars
 // ============================================
 const starCount = 800; // More stars!
-const starGeometry = new THREE.BoxGeometry(0.08, 0.08, 0.08); // Bigger stars
+const starGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.05); // Small cube stars
 const starMaterial = new THREE.MeshBasicMaterial({
   color: 0xffffff,
   transparent: true,
@@ -1285,7 +1304,7 @@ function animate() {
     }
   }
 
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 animate();
@@ -1298,6 +1317,8 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   updateCameraForScreenSize();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.resolution.set(window.innerWidth, window.innerHeight);
 });
 
 // Cube starts solved - user navigation will mix it up
