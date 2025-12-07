@@ -38,6 +38,7 @@ const BEVEL_SIZE = 0.06;
 // ============================================
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
+scene.background = null; // Transparent background to show CSS
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
 
