@@ -48,6 +48,10 @@ body.dark-mode {
   justify-content: center;
 }
 
+#canvas-container canvas {
+  background: transparent !important;
+}
+
 /* Navigation */
 #nav {
   position: fixed;
