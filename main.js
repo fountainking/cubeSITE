@@ -41,7 +41,8 @@ const BEVEL_SIZE = 0.06;
 // ============================================
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
-scene.background = null; // Transparent background to show CSS
+// Set initial background to match CSS
+scene.background = new THREE.Color(0xf0f0f0);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
 
@@ -101,8 +102,16 @@ rgbeLoader.load(
 // ============================================
 // POST-PROCESSING - Bloom for stars
 // ============================================
-const composer = new EffectComposer(renderer);
+const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+  type: THREE.HalfFloatType,
+  format: THREE.RGBAFormat,
+  encoding: THREE.sRGBEncoding
+});
+
+const composer = new EffectComposer(renderer, renderTarget);
 const renderPass = new RenderPass(scene, camera);
+renderPass.clear = false;
+renderPass.clearDepth = true;
 composer.addPass(renderPass);
 
 // Subtle bloom pass for star glow
@@ -458,7 +467,7 @@ scene.add(cubeGroup);
 // PARTICLE SYSTEM - Cube Stars
 // ============================================
 const starCount = 800; // More stars!
-const starGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.05); // Small cube stars
+const starGeometry = new THREE.BoxGeometry(0.03, 0.03, 0.03); // Tiny cube stars
 const starMaterial = new THREE.MeshBasicMaterial({
   color: 0xffffff,
   transparent: true,
@@ -1147,6 +1156,13 @@ async function navigateToFace(faceIndex) {
   const bgVar = faceBgVars[faceIndex];
   const bgValue = getComputedStyle(document.documentElement).getPropertyValue(bgVar).trim();
   document.body.style.background = bgValue;
+
+  // Update THREE.js scene background to match
+  // Extract first color from gradient or use solid color
+  const colorMatch = bgValue.match(/#[0-9a-fA-F]{6}/);
+  if (colorMatch) {
+    scene.background = new THREE.Color(colorMatch[0]);
+  }
 
   // Apply material preset for this category
   applyMaterialPreset(faceIndex);
