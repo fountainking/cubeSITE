@@ -1,8 +1,4 @@
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
 // ============================================
@@ -97,64 +93,6 @@ rgbeLoader.load(
     pmremGenerator.dispose();
   }
 );
-
-// ============================================
-// POST-PROCESSING
-// ============================================
-const composer = new EffectComposer(renderer);
-const renderPass = new RenderPass(scene, camera);
-composer.addPass(renderPass);
-
-// Bloom pass (10%)
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.1,   // strength (10%)
-  0.4,   // radius
-  0.85   // threshold
-);
-bloomPass.enabled = false; // Only enable in dark mode
-composer.addPass(bloomPass);
-
-// Chromatic aberration shader - subtle, 5%
-const ChromaticAberrationShader = {
-  uniforms: {
-    tDiffuse: { value: null },
-    amount: { value: 0.012 } // 40% effect
-  },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform sampler2D tDiffuse;
-    uniform float amount;
-    varying vec2 vUv;
-    void main() {
-      // Only apply effect near the center where the cube is
-      vec2 center = vec2(0.5, 0.5);
-      float dist = distance(vUv, center);
-      float mask = smoothstep(0.5, 0.15, dist); // Fade in toward center
-
-      vec2 dir = vUv - center;
-      float effectAmount = amount * mask;
-
-      vec4 cr = texture2D(tDiffuse, vUv + dir * effectAmount);
-      vec4 cg = texture2D(tDiffuse, vUv);
-      vec4 cb = texture2D(tDiffuse, vUv - dir * effectAmount);
-
-      gl_FragColor = vec4(cr.r, cg.g, cb.b, cg.a);
-    }
-  `
-};
-
-const chromaticPass = new ShaderPass(ChromaticAberrationShader);
-chromaticPass.enabled = false;
-composer.addPass(chromaticPass);
-
-
 
 // ============================================
 // CREATE RUBIK'S CUBE
@@ -497,6 +435,132 @@ for (let x = 0; x < SEGMENTS; x++) {
 scene.add(cubeGroup);
 
 // ============================================
+// PARTICLE SYSTEM - Cube Stars
+// ============================================
+const starCount = 200;
+const starGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+const starMaterial = new THREE.MeshBasicMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.8
+});
+
+const stars = new THREE.InstancedMesh(starGeometry, starMaterial, starCount);
+const starData = [];
+
+// Position stars randomly in a sphere around the scene
+for (let i = 0; i < starCount; i++) {
+  const matrix = new THREE.Matrix4();
+
+  // Random position in a sphere
+  const radius = 15 + Math.random() * 10;
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.random() * Math.PI;
+
+  const x = radius * Math.sin(phi) * Math.cos(theta);
+  const y = radius * Math.sin(phi) * Math.sin(theta);
+  const z = radius * Math.cos(phi);
+
+  matrix.setPosition(x, y, z);
+
+  // Random rotation
+  const rotation = new THREE.Euler(
+    Math.random() * Math.PI,
+    Math.random() * Math.PI,
+    Math.random() * Math.PI
+  );
+  matrix.makeRotationFromEuler(rotation);
+  matrix.setPosition(x, y, z);
+
+  stars.setMatrixAt(i, matrix);
+
+  // Store data for animation
+  starData.push({
+    twinkleSpeed: 0.5 + Math.random() * 2,
+    twinkleOffset: Math.random() * Math.PI * 2,
+    baseOpacity: 0.3 + Math.random() * 0.5
+  });
+}
+
+stars.instanceMatrix.needsUpdate = true;
+stars.visible = false; // Only show in night sky (Why section)
+scene.add(stars);
+
+// ============================================
+// SHOOTING STARS - Cube Meteors
+// ============================================
+const shootingStars = [];
+const maxShootingStars = 5;
+
+function createShootingStar() {
+  const geometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 1
+  });
+  const meteor = new THREE.Mesh(geometry, material);
+
+  // Random start position (off screen)
+  const side = Math.floor(Math.random() * 4);
+  const distance = 20;
+
+  switch(side) {
+    case 0: // top
+      meteor.position.set(Math.random() * 40 - 20, distance, Math.random() * 40 - 20);
+      break;
+    case 1: // right
+      meteor.position.set(distance, Math.random() * 40 - 20, Math.random() * 40 - 20);
+      break;
+    case 2: // bottom
+      meteor.position.set(Math.random() * 40 - 20, -distance, Math.random() * 40 - 20);
+      break;
+    case 3: // left
+      meteor.position.set(-distance, Math.random() * 40 - 20, Math.random() * 40 - 20);
+      break;
+  }
+
+  // Random velocity (shooting across screen)
+  meteor.userData.velocity = new THREE.Vector3(
+    (Math.random() - 0.5) * 0.3,
+    (Math.random() - 0.5) * 0.3,
+    (Math.random() - 0.5) * 0.3
+  );
+
+  // Random rotation speed
+  meteor.userData.rotationSpeed = new THREE.Vector3(
+    (Math.random() - 0.5) * 0.1,
+    (Math.random() - 0.5) * 0.1,
+    (Math.random() - 0.5) * 0.1
+  );
+
+  meteor.userData.lifetime = 0;
+  meteor.userData.maxLifetime = 2 + Math.random() * 2; // 2-4 seconds
+
+  scene.add(meteor);
+  shootingStars.push(meteor);
+
+  return meteor;
+}
+
+function spawnShootingStars() {
+  // Spawn 1-3 shooting stars
+  const count = 1 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < count; i++) {
+    if (shootingStars.length < maxShootingStars) {
+      setTimeout(() => createShootingStar(), i * 200); // Stagger spawns slightly
+    }
+  }
+
+  // Schedule next meteor shower
+  const nextShower = 5000 + Math.random() * 5000; // 5-10 seconds
+  setTimeout(spawnShootingStars, nextShower);
+}
+
+// Start meteor showers (only when stars are visible)
+let meteorShowerActive = false;
+
+// ============================================
 // INTRO ANIMATION - Cubes explode in
 // ============================================
 let introComplete = false;
@@ -761,10 +825,6 @@ function checkForSolve() {
     // Cube is solved! Toggle dark mode
     isDarkMode = !isDarkMode;
     document.body.classList.toggle('dark-mode', isDarkMode);
-
-    // Enable/disable post-processing effects
-    bloomPass.enabled = isDarkMode;
-    chromaticPass.enabled = isDarkMode;
 
     // Reset materials to default when solved
     if (isDarkMode) {
@@ -1053,6 +1113,15 @@ async function navigateToFace(faceIndex) {
   // Apply material preset for this category
   applyMaterialPreset(faceIndex);
 
+  // Toggle stars and meteor shower for Why (night sky) section
+  stars.visible = faceIndex === 0;
+  if (faceIndex === 0 && !meteorShowerActive) {
+    meteorShowerActive = true;
+    spawnShootingStars();
+  } else if (faceIndex !== 0 && meteorShowerActive) {
+    meteorShowerActive = false;
+  }
+
   // Smoothly rotate the whole cube to show the face
   targetRotation = { ...faceRotations[faceIndex] };
   currentFace = faceIndex;
@@ -1138,8 +1207,7 @@ function animate() {
   cubeGroup.rotation.x = currentRotation.x;
   cubeGroup.rotation.y = currentRotation.y;
 
-  // Use composer for post-processing
-  composer.render();
+  renderer.render(scene, camera);
 }
 
 animate();
@@ -1152,8 +1220,6 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   updateCameraForScreenSize();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
-  bloomPass.resolution.set(window.innerWidth, window.innerHeight);
 });
 
 // Cube starts solved - user navigation will mix it up
