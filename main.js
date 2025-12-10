@@ -392,7 +392,7 @@ for (let x = 0; x < SEGMENTS; x++) {
       const material = new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         transparent: true,
-        opacity: 0.15,
+        opacity: 0.3, // Increased from 0.15 to make visible at launch
         roughness: 0.1,
         metalness: 0.1,
         clearcoat: 0.3,
@@ -401,13 +401,31 @@ for (let x = 0; x < SEGMENTS; x++) {
 
       const cube = new THREE.Mesh(geometry, material);
 
-      // Clean white edge lines
+      // Black edge lines with white tracing effect
       const edges = new THREE.EdgesGeometry(geometry, 15);
       const lineMaterial = new THREE.LineBasicMaterial({
-        color: 0xffffff,
+        color: 0x000000, // Black wireframe
       });
       const wireframe = new THREE.LineSegments(edges, lineMaterial);
       cube.add(wireframe);
+
+      // Knight Rider effect - white tracing line
+      const traceMaterial = new THREE.LineDashedMaterial({
+        color: 0xffffff,
+        linewidth: 2,
+        dashSize: 0.15, // Length of white dash
+        gapSize: 0.8,   // Length of gap (creates the "pulse" effect)
+        transparent: true,
+        opacity: 0.9
+      });
+      const traceWireframe = new THREE.LineSegments(edges, traceMaterial);
+      traceWireframe.computeLineDistances(); // Required for dashed lines
+      cube.add(traceWireframe);
+
+      // Store wireframes for animation
+      cube.userData.wireframe = wireframe;
+      cube.userData.traceWireframe = traceWireframe;
+      cube.userData.traceOffset = Math.random() * 10; // Random start offset for variety
 
       // Add colored dots to outer faces
       const halfSize = cubeSize / 2;
@@ -1076,7 +1094,7 @@ const materialPresets = {
 // Default material settings
 const defaultMaterial = {
   color: 0xffffff,
-  opacity: 0.15,
+  opacity: 0.3, // Increased from 0.15 to make visible at launch
   transparent: true,
   roughness: 0.1,
   metalness: 0.1,
@@ -1278,6 +1296,16 @@ function animate() {
 
   cubeGroup.rotation.x = currentRotation.x;
   cubeGroup.rotation.y = currentRotation.y;
+
+  // Animate Knight Rider tracing effect on wireframes
+  const traceSpeed = 0.5; // Speed of the pulse
+  smallCubes.forEach(cube => {
+    if (cube.userData.traceWireframe) {
+      const traceMat = cube.userData.traceWireframe.material;
+      // Animate dashOffset to create moving pulse effect
+      traceMat.dashOffset = -(now * 0.001 * traceSpeed + cube.userData.traceOffset);
+    }
+  });
 
   // Animate twinkling stars
   if (stars.visible) {
